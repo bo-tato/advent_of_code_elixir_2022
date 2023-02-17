@@ -1,0 +1,67 @@
+# Day 8
+
+```elixir
+Mix.install([{:kino, "~> 0.5.0"}])
+```
+
+## Section
+
+```elixir
+input = """
+30373
+25512
+65332
+33549
+35390
+"""
+```
+
+```elixir
+input = Kino.Input.textarea("paste input here:")
+```
+
+```elixir
+input = Kino.Input.read(input)
+```
+
+## Part 1
+
+```elixir
+grid = input |> String.split("\n", trim: true) |> Enum.map(&String.to_charlist/1)
+transposed = Enum.zip(grid) |> Enum.map(&Tuple.to_list/1)
+
+for row <- 0..(length(grid) - 1), col <- 0..(length(hd(grid)) - 1) do
+  {left, [_current | right]} = Enum.split(Enum.at(grid, row), col)
+  {top, [current | bottom]} = Enum.split(Enum.at(transposed, col), row)
+
+  Enum.max([0 | left]) < current || Enum.max([0 | right]) < current ||
+    Enum.max([0 | top]) < current || Enum.max([0 | bottom]) < current
+end
+|> Enum.count(& &1)
+```
+
+## Part 2
+
+```elixir
+defmodule Part2 do
+  def run(input) do
+    grid = input |> String.split("\n", trim: true) |> Enum.map(&String.to_charlist/1)
+    transposed = Enum.zip(grid) |> Enum.map(&Tuple.to_list/1)
+
+    for row <- 1..(length(grid) - 2), col <- 1..(length(hd(grid)) - 2) do
+      {left, [_current | right]} = Enum.split(Enum.at(grid, row), col)
+      {top, [current | bottom]} = Enum.split(Enum.at(transposed, col), row)
+
+      [Enum.reverse(left), right, Enum.reverse(top), bottom]
+      |> Enum.map(fn l -> Enum.split_while(l, &(&1 < current)) end)
+      |> Enum.map(fn {h, t} -> Enum.count(h) + if Enum.empty?(t), do: 0, else: 1 end)
+      |> Enum.product()
+    end
+    |> Enum.max()
+  end
+end
+```
+
+```elixir
+Part2.run(input)
+```

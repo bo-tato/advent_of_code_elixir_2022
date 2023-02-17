@@ -1,0 +1,59 @@
+# Day 10
+
+## Section
+
+```elixir
+input = """
+noop
+addx 3
+addx -5
+"""
+```
+
+## Part 1
+
+```elixir
+input
+|> String.split("\n", trim: true)
+|> Stream.concat(["noop"])
+|> Stream.transform({1, 1}, fn instruction, {cycle, x} = cur ->
+  case instruction do
+    "noop" -> {[cur], {cycle + 1, x}}
+    "addx " <> n -> {[cur, {cycle + 1, x}], {cycle + 2, x + String.to_integer(n)}}
+  end
+end)
+|> Stream.take_while(fn {cycle, _x} -> cycle <= 220 end)
+# |> Stream.filter(fn {cycle, _x} -> cycle >= 180 && cycle <= 225 end)
+|> Stream.filter(fn {cycle, _x} -> cycle in [20, 60, 100, 140, 180, 220] end)
+|> Stream.map(fn {cycle, x} -> cycle * x end)
+|> Enum.sum()
+
+# |> Enum.to_list()
+```
+
+## Part 2
+
+```elixir
+input
+|> String.split("\n", trim: true)
+|> Stream.concat(["noop"])
+|> Stream.transform({1, 1}, fn instruction, {cycle, x} = cur ->
+  case instruction do
+    "noop" -> {[cur], {cycle + 1, x}}
+    "addx " <> n -> {[cur, {cycle + 1, x}], {cycle + 2, x + String.to_integer(n)}}
+  end
+end)
+|> Stream.take_while(fn {cycle, _x} -> cycle <= 240 end)
+|> Stream.map(fn {cycle, x} ->
+  pixel = rem(cycle - 1, 40)
+  newline? = if pixel == 39, do: "\n", else: ""
+
+  if abs(x - pixel) <= 1 do
+    "#"
+  else
+    "."
+  end <> newline?
+end)
+|> Enum.join()
+|> IO.puts()
+```

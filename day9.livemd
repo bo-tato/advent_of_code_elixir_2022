@@ -1,0 +1,175 @@
+# Day 9
+
+```elixir
+Mix.install([{:kino, "~> 0.5.0"}])
+```
+
+## Section
+
+```elixir
+input = """
+R 4
+U 4
+L 3
+D 1
+R 4
+D 1
+L 5
+R 2
+"""
+```
+
+```elixir
+input = Kino.Input.textarea("paste input here:")
+```
+
+```elixir
+input = Kino.Input.read(input)
+```
+
+```elixir
+input = """
+R 5
+U 8
+L 8
+D 3
+R 17
+D 10
+L 25
+U 20
+"""
+```
+
+```elixir
+defmodule Rope do
+  def walk([], _, visited), do: MapSet.size(visited)
+  def walk([[_, 0] | rest], positions, visited), do: walk(rest, positions, visited)
+
+  def walk([[direction, distance] | rest], {{tail_x, tail_y}, {head_x, head_y}}, visited) do
+    # IO.inspect([direction, distance])
+    # IO.inspect({{tail_x, tail_y}, {head_x, head_y}})
+
+    {new_tail, new_head} =
+      case direction do
+        "R" ->
+          new_tail =
+            if head_x > tail_x do
+              {tail_x + 1, head_y}
+            else
+              {tail_x, tail_y}
+            end
+
+          {new_tail, {head_x + 1, head_y}}
+
+        "L" ->
+          new_tail =
+            if head_x < tail_x do
+              {tail_x - 1, head_y}
+            else
+              {tail_x, tail_y}
+            end
+
+          {new_tail, {head_x - 1, head_y}}
+
+        "D" ->
+          new_tail =
+            if head_y < tail_y do
+              {head_x, tail_y - 1}
+            else
+              {tail_x, tail_y}
+            end
+
+          {new_tail, {head_x, head_y - 1}}
+
+        "U" ->
+          new_tail =
+            if head_y > tail_y do
+              {head_x, tail_y + 1}
+            else
+              {tail_x, tail_y}
+            end
+
+          {new_tail, {head_x, head_y + 1}}
+      end
+
+    walk([[direction, distance - 1] | rest], {new_tail, new_head}, MapSet.put(visited, new_tail))
+  end
+end
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+input
+|> String.split()
+|> Enum.chunk_every(2)
+|> Enum.map(fn [d, n] -> [d, String.to_integer(n)] end)
+|> Rope.walk({{0, 0}, {0, 0}}, MapSet.new([{0, 0}]))
+```
+
+## Part 2
+
+```elixir
+defmodule Rope do
+  def walk([], _, visited), do: MapSet.size(visited)
+  # def walk([], rope, _), do: IO.inspect(rope)
+
+  def walk([[_, 0] | rest], rope, visited), do: walk(rest, rope, visited)
+
+  def walk([[direction, distance] | rest], rope, visited) do
+    # IO.inspect([direction, distance])
+    # IO.inspect(rope)
+
+    [{head_x, head_y} | tail] = rope
+
+    new_head =
+      case direction do
+        "R" -> {head_x + 1, head_y}
+        "L" -> {head_x - 1, head_y}
+        "D" -> {head_x, head_y - 1}
+        "U" -> {head_x, head_y + 1}
+      end
+
+    new_tail = Enum.scan(tail, new_head, &move/2)
+
+    walk(
+      [[direction, distance - 1] | rest],
+      [new_head | new_tail],
+      MapSet.put(visited, List.last(new_tail))
+    )
+  end
+
+  def move({tail_x, tail_y}, {head_x, head_y}) do
+    new_x =
+      cond do
+        head_x > tail_x + 1 -> tail_x + 1
+        head_x < tail_x - 1 -> tail_x - 1
+        true -> :same
+      end
+
+    new_y =
+      cond do
+        head_y > tail_y + 1 -> tail_y + 1
+        head_y < tail_y - 1 -> tail_y - 1
+        true -> :same
+      end
+
+    case {new_x, new_y} do
+      {:same, :same} -> {tail_x, tail_y}
+      {_, :same} -> {new_x, head_y}
+      {:same, _} -> {head_x, new_y}
+      {_, _} -> {new_x, new_y}
+    end
+  end
+end
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+input
+|> String.split()
+|> Enum.chunk_every(2)
+|> Enum.map(fn [d, n] -> [d, String.to_integer(n)] end)
+|> Rope.walk(List.duplicate({0, 0}, 10), MapSet.new([{0, 0}]))
+```

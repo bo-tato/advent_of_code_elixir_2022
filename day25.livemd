@@ -1,0 +1,88 @@
+# Day 25
+
+```elixir
+Mix.install([{:kino, "~> 0.5.0"}])
+```
+
+## Section
+
+```elixir
+input = Kino.Input.textarea("paste input here:")
+```
+
+```elixir
+input = Kino.Input.read(input)
+```
+
+```elixir
+defmodule SNAFU do
+  def to_integer(snafu) do
+    snafu
+    |> String.to_charlist()
+    |> Enum.reverse()
+    |> Enum.with_index(fn chr, digit ->
+      5 ** digit *
+        case chr do
+          ?2 -> 2
+          ?1 -> 1
+          ?0 -> 0
+          ?- -> -1
+          ?= -> -2
+        end
+    end)
+    |> Enum.sum()
+  end
+
+  def to_snafu(n, last_power \\ nil)
+  def to_snafu(0, last_power), do: List.duplicate(?0, last_power)
+
+  def to_snafu(n, last_power) do
+    {pow, max_subtraction} =
+      Stream.iterate({1, 0}, fn {pow, _} ->
+        {pow + 1, div(5 ** pow, 2)}
+      end)
+      |> Stream.take_while(fn {_, prev} -> prev < abs(n) end)
+      |> Enum.at(-1)
+      |> IO.inspect()
+
+    pow = pow - 1
+
+    digit = div(n + div(n, abs(n)) * max_subtraction, 5 ** pow)
+
+    chr_digit =
+      case digit do
+        2 -> ?2
+        1 -> ?1
+        0 -> ?0
+        -1 -> ?-
+        -2 -> ?=
+      end
+
+    IO.inspect([digit])
+    IO.inspect(n - digit * 5 ** pow)
+
+    # IO.inspect({last_power, pow})
+    if last_power do
+      List.duplicate(?0, last_power - pow - 1)
+    else
+      []
+    end ++
+      [chr_digit | to_snafu(n - digit * 5 ** pow, pow)]
+  end
+end
+
+SNAFU.to_integer("2=-1=0")
+SNAFU.to_snafu(4890)
+```
+
+```elixir
+input
+|> String.split()
+|> Enum.map(&SNAFU.to_integer/1)
+|> Enum.sum()
+|> SNAFU.to_snafu()
+```
+
+```elixir
+SNAFU.to_integer("20-1-0=-2=-2220=0011")
+```

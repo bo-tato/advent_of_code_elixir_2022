@@ -1,0 +1,30 @@
+# Day 1 - part2
+
+```elixir
+Mix.install([{:kino, "~> 0.5.0"}])
+```
+
+## Part 2
+
+```elixir
+input = Kino.Input.textarea("Please paste your input file:")
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+input
+|> Kino.Input.read()
+|> String.split("\n")
+|> Enum.map(fn n ->
+  unless n == "",
+    do: String.to_integer(n)
+end)
+|> Enum.chunk_by(&is_integer/1)
+|> Enum.filter(fn list -> list != [nil] end)
+|> Enum.map(&Enum.sum/1)
+|> dbg()
+|> Enum.sort(:desc)
+|> Enum.take(3)
+|> Enum.sum()
+```

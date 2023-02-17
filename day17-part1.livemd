@@ -1,0 +1,119 @@
+# Day 17 - part1
+
+```elixir
+Mix.install([{:kino, "~> 0.5.0"}])
+```
+
+## Section
+
+```elixir
+input = Kino.Input.textarea("paste input here:")
+```
+
+```elixir
+jets = ">>><<><>><<<>><>>><<<>>><<<><<<>><>><<>>"
+```
+
+```elixir
+jets = input |> Kino.Input.read() |> String.trim()
+```
+
+```elixir
+blocks = [
+  [{0, 0}, {1, 0}, {2, 0}, {3, 0}],
+  [{1, 0}, {0, 1}, {1, 1}, {2, 1}, {1, 2}],
+  [{0, 0}, {1, 0}, {2, 0}, {2, 1}, {2, 2}],
+  [{0, 0}, {0, 1}, {0, 2}, {0, 3}],
+  [{0, 0}, {1, 0}, {0, 1}, {1, 1}]
+]
+```
+
+```elixir
+defmodule Tetris do
+  def height(tower) do
+    tower
+    |> Enum.map(&elem(&1, 1))
+    |> Enum.max(&>=/2, fn -> 0 end)
+    |> Kernel.+(1)
+  end
+
+  def pprint({bx, by}, block, tower) do
+    for y <- max(height(tower), by + 4)..0 do
+      for x <- 0..6 do
+        cond do
+          MapSet.member?(tower, {x, y}) -> ?#
+          {x - bx, y - by} in block -> ?@
+          true -> ?\s
+        end
+      end
+      |> then(&('|' ++ &1 ++ '|'))
+      |> IO.puts()
+    end
+
+    IO.puts('+-------+')
+  end
+
+  def free?({x, y}, block, tower) do
+    for {dx, dy} <- block do
+      {bx, by} = {x + dx, y + dy}
+
+      not MapSet.member?(tower, {bx, by}) and
+        bx >= 0 and bx < 7 and
+        by >= 0
+    end
+    |> Enum.all?()
+  end
+
+  def add_block({x, y}, block, tower) do
+    for {bx, by} <- block, reduce: tower do
+      tower ->
+        MapSet.put(tower, {x + bx, y + by})
+    end
+  end
+
+  def move(_, {_, _, _, counter}) when counter == 2022 do
+    {:halt, nil}
+  end
+
+  def move(jet, {tower, {x, y}, [block | blocks], counter}) do
+    dx = if jet == ?>, do: 1, else: -1
+
+    {x, y} =
+      if free?({x + dx, y}, block, tower) do
+        {x + dx, y}
+      else
+        {x, y}
+      end
+
+    if(free?({x, y - 1}, block, tower)) do
+      {
+        [height(tower)],
+        {tower, {x, y - 1}, [block | blocks], counter}
+      }
+    else
+      tower = add_block({x, y}, block, tower)
+      height = height(tower)
+
+      {
+        [height],
+        {
+          tower,
+          {2, height + 3},
+          blocks ++ [block],
+          counter + 1
+        }
+      }
+    end
+  end
+end
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+jets
+|> to_charlist()
+|> Stream.cycle()
+|> Stream.transform({MapSet.new(), {2, 3}, blocks, 0}, &Tetris.move/2)
+|> Enum.at(-1)
+```

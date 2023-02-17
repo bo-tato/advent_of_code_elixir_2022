@@ -1,0 +1,121 @@
+# Day 5
+
+```elixir
+Mix.install([{:kino, "~> 0.5.0"}])
+```
+
+## Input
+
+```elixir
+input = """
+    [D]    
+[N] [C]    
+[Z] [M] [P]
+ 1   2   3 
+
+move 1 from 2 to 1
+move 3 from 1 to 3
+move 2 from 2 to 1
+move 1 from 1 to 2
+"""
+```
+
+```elixir
+input = Kino.Input.textarea("Paste input here:")
+```
+
+```elixir
+input = Kino.Input.read(input)
+```
+
+```elixir
+input = String.split(input, "\n", trim: true)
+{crates, [_ | instructions]} = Enum.split_while(input, fn s -> String.at(s, 1) != "1" end)
+```
+
+```elixir
+crates =
+  crates
+  |> Enum.map(fn s ->
+    s
+    |> String.codepoints()
+    |> Enum.chunk_every(4)
+    |> Enum.map(&Enum.at(&1, 1))
+  end)
+  |> Enum.zip()
+  |> Enum.map(fn l ->
+    l
+    |> Tuple.to_list()
+    |> Enum.reject(&(&1 == " "))
+  end)
+```
+
+## Part 1
+
+```elixir
+defmodule Crates do
+  def execute(crates, []), do: crates
+
+  def execute(crates, [instruction | instructions]) do
+    [count, src_stack, dst_stack] =
+      Regex.run(~r/move (\d+) from (\d+) to (\d+)/, instruction, capture: :all_but_first)
+      |> Enum.map(&String.to_integer/1)
+
+    {src_stack, dst_stack} = {src_stack - 1, dst_stack - 1}
+
+    {to_move, new_src} = Enum.at(crates, src_stack) |> Enum.split(count)
+
+    IO.inspect(crates)
+
+    crates =
+      crates
+      |> List.replace_at(src_stack, new_src)
+      |> List.update_at(dst_stack, fn l -> Enum.reverse(to_move) ++ l end)
+
+    execute(crates, instructions)
+  end
+end
+
+Crates.execute(crates, instructions)
+```
+
+```elixir
+Crates.execute(crates, instructions)
+|> Enum.map(&List.first/1)
+|> Enum.join()
+```
+
+## Part 2
+
+```elixir
+defmodule CrateMover9001 do
+  def execute(crates, []), do: crates
+
+  def execute(crates, [instruction | instructions]) do
+    [count, src_stack, dst_stack] =
+      Regex.run(~r/move (\d+) from (\d+) to (\d+)/, instruction, capture: :all_but_first)
+      |> Enum.map(&String.to_integer/1)
+
+    {src_stack, dst_stack} = {src_stack - 1, dst_stack - 1}
+
+    {to_move, new_src} = Enum.at(crates, src_stack) |> Enum.split(count)
+
+    IO.inspect(crates)
+
+    crates =
+      crates
+      |> List.replace_at(src_stack, new_src)
+      |> List.update_at(dst_stack, fn l -> to_move ++ l end)
+
+    execute(crates, instructions)
+  end
+end
+
+CrateMover9001.execute(crates, instructions)
+```
+
+```elixir
+CrateMover9001.execute(crates, instructions)
+|> Enum.map(&List.first/1)
+|> Enum.join()
+```

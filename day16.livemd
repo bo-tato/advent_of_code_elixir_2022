@@ -1,0 +1,108 @@
+# Day 16
+
+## Section
+
+```elixir
+input = """
+Valve AA has flow rate=0; tunnels lead to valves DD, II, BB
+Valve BB has flow rate=13; tunnels lead to valves CC, AA
+Valve CC has flow rate=2; tunnels lead to valves DD, BB
+Valve DD has flow rate=20; tunnels lead to valves CC, AA, EE
+Valve EE has flow rate=3; tunnels lead to valves FF, DD
+Valve FF has flow rate=0; tunnels lead to valves EE, GG
+Valve GG has flow rate=0; tunnels lead to valves FF, HH
+Valve HH has flow rate=22; tunnel leads to valve GG
+Valve II has flow rate=0; tunnels lead to valves AA, JJ
+Valve JJ has flow rate=21; tunnel leads to valve II
+"""
+```
+
+```elixir
+lines = String.split(input, "\n", trim: true)
+```
+
+```elixir
+defmodule Valves do
+  def best_path(_, _, _, time) when time <= 1, do: 0
+
+  def best_path(valves, current, paths, time) do
+    for valve = {label, flow} <- valves do
+      distance = paths[{current, label}]
+
+      best_path(MapSet.delete(valves, valve), label, paths, time - distance - 1) +
+        (time - distance - 1) * flow
+    end
+    |> Enum.max(&>=/2, fn -> 0 end)
+  end
+
+  def permutations([valve]), do: [{MapSet.new(), MapSet.new([valve])}]
+
+  def permutations([valve | valves]) do
+    for {left, right} <- permutations(valves) do
+      [{MapSet.put(left, valve), right}, {left, MapSet.put(right, valve)}]
+    end
+    |> List.flatten()
+  end
+end
+```
+
+```elixir
+{flows, paths} =
+  lines
+  |> Enum.map_reduce(%{}, fn line, paths ->
+    [valve, flow, tunnels] =
+      Regex.run(~r/Valve (\w+) has flow rate=(\d+); tunnels? leads? to valves? (.*)/, line,
+        capture: :all_but_first
+      )
+
+    flow = String.to_integer(flow)
+
+    {{valve, flow},
+     String.split(tunnels, ", ") |> Map.new(fn v -> {{valve, v}, 1} end) |> Map.merge(paths)}
+  end)
+
+flows = Map.new(flows)
+valves = Map.keys(flows)
+
+# calculate floyd-warshall all pairs shortest paths
+paths =
+  for i <- valves, j <- valves, reduce: paths do
+    paths -> Map.put_new(paths, {i, j}, 999)
+  end
+
+paths =
+  for k <- valves,
+      i <- valves,
+      j <- valves,
+      reduce: paths do
+    paths ->
+      sum = paths[{i, k}] + paths[{k, j}]
+
+      if sum < paths[{i, j}] do
+        Map.put(paths, {i, j}, sum)
+      else
+        paths
+      end
+  end
+
+# ignore the valves with 0 flow now that we have edges around them
+flows = flows |> Map.filter(fn {_, f} -> f > 0 end) |> MapSet.new()
+```
+
+## Part 1
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+Valves.best_path(flows, "AA", paths, 30)
+```
+
+## Part 2
+
+```elixir
+for {person, elephant} <- Valves.permutations(MapSet.to_list(flows)) do
+  Valves.best_path(person, "AA", paths, 26) +
+    Valves.best_path(elephant, "AA", paths, 26)
+end
+|> Enum.max()
+```

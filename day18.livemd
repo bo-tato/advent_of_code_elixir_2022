@@ -1,0 +1,135 @@
+# Day 18
+
+```elixir
+Mix.install([{:kino, "~> 0.5.0"}])
+```
+
+## Section
+
+```elixir
+input = """
+2,2,2
+1,2,2
+3,2,2
+2,1,2
+2,3,2
+2,2,1
+2,2,3
+2,2,4
+2,2,6
+1,2,5
+3,2,5
+2,1,5
+2,3,5
+"""
+```
+
+```elixir
+input = Kino.Input.textarea("paste input here:")
+```
+
+```elixir
+input = Kino.Input.read(input)
+```
+
+```elixir
+cubes =
+  input
+  |> String.split()
+  |> MapSet.new(fn line ->
+    line
+    |> String.split(",")
+    |> Enum.map(&String.to_integer/1)
+    |> List.to_tuple()
+  end)
+
+neighbors = [{-1, 0, 0}, {1, 0, 0}, {0, -1, 0}, {0, 1, 0}, {0, 0, -1}, {0, 0, 1}]
+```
+
+## Part 1
+
+```elixir
+cubes
+|> Enum.map(fn {x, y, z} ->
+  Enum.count(neighbors, fn {dx, dy, dz} ->
+    not MapSet.member?(cubes, {dx + x, dy + y, dz + z})
+  end)
+end)
+|> Enum.sum()
+```
+
+## Part 2
+
+```elixir
+defmodule Search do
+  @neighbors [{-1, 0, 0}, {1, 0, 0}, {0, -1, 0}, {0, 1, 0}, {0, 0, -1}, {0, 0, 1}]
+
+  def search({x, y, z}, visited, _, {min_x, min_y, min_z}, {max_x, max_y, max_z})
+      when x < min_x or y < min_y or z < min_z or x > max_x or y > max_y or z > max_z do
+    {0, visited}
+  end
+
+  def search({x, y, z}, visited, cubes, min, max) do
+    {to_sum, visited} =
+      Enum.map_reduce(@neighbors, MapSet.put(visited, {x, y, z}), fn {dx, dy, dz}, visited ->
+        neighbor = {x + dx, y + dy, z + dz}
+
+        cond do
+          MapSet.member?(cubes, neighbor) -> {1, visited}
+          not MapSet.member?(visited, neighbor) -> search(neighbor, visited, cubes, min, max)
+          true -> {0, visited}
+        end
+      end)
+
+    {Enum.sum(to_sum), visited}
+  end
+end
+```
+
+```elixir
+# with global visited state, is nicer or worse?
+defmodule Hacky do
+  @neighbors [{-1, 0, 0}, {1, 0, 0}, {0, -1, 0}, {0, 1, 0}, {0, 0, -1}, {0, 0, 1}]
+
+  def search({x, y, z}, _, {min_x, min_y, min_z}, {max_x, max_y, max_z})
+      when x < min_x or y < min_y or z < min_z or x > max_x or y > max_y or z > max_z,
+      do: 0
+
+  def search({x, y, z} = cur, cubes, min, max) do
+    visited = Process.get(:visited)
+
+    if MapSet.member?(visited, cur) do
+      0
+    else
+      Process.put(:visited, MapSet.put(visited, cur))
+
+      Enum.map(@neighbors, fn {dx, dy, dz} ->
+        neighbor = {x + dx, y + dy, z + dz}
+
+        if MapSet.member?(cubes, neighbor) do
+          1
+        else
+          search(neighbor, cubes, min, max)
+        end
+      end)
+      |> Enum.sum()
+    end
+  end
+end
+```
+
+```elixir
+{min_x, max_x} = cubes |> Enum.map(&elem(&1, 0)) |> Enum.min_max()
+{min_y, max_y} = cubes |> Enum.map(&elem(&1, 1)) |> Enum.min_max()
+{min_z, max_z} = cubes |> Enum.map(&elem(&1, 2)) |> Enum.min_max()
+min = {min_x - 1, min_y - 1, min_z - 1}
+max = {max_x + 1, max_y + 1, max_z + 1}
+
+Process.put(:visited, MapSet.new())
+Hacky.search(min, cubes, min, max)
+```
+
+```elixir
+Search.search(min, MapSet.new(), cubes, min, max)
+|> elem(0)
+```

@@ -1,0 +1,82 @@
+# Day 3
+
+```elixir
+Mix.install([{:kino, "~> 0.5.0"}])
+```
+
+## Input
+
+```elixir
+input = """
+vJrwpWtwJgWrhcsFMMfFFhFp
+jqHRNqRjqzjGDLGLrsFMfFZSrLrFZsSL
+PmmdzqPrVvPwwTWBwg
+wMqvLMZHhHMvwLHjbvcjnnSBnvTQFn
+ttgJtRGJQctTZtZT
+CrZsJsPPZsGzwwsLwLmpwMDw
+"""
+```
+
+```elixir
+input = Kino.Input.textarea("Input file here:")
+```
+
+```elixir
+input = Kino.Input.read(input)
+```
+
+## Part 1
+
+```elixir
+priority = fn c ->
+  priorities = Map.new(Enum.zip(?a..?z, 1..26) ++ Enum.zip(?A..?Z, 27..52))
+  priorities[c]
+end
+```
+
+```elixir
+common = fn s ->
+  len = div(String.length(s), 2)
+
+  {first, second} =
+    s
+    |> to_charlist()
+    |> Enum.map(priority)
+    |> Enum.split(len)
+
+  MapSet.intersection(MapSet.new(first), MapSet.new(second)) |> Enum.sum()
+end
+
+common.("vJrwpWtwJgWrhcsFMMfFFhFp")
+```
+
+```elixir
+input
+|> String.split()
+|> Enum.map(common)
+|> Enum.sum()
+```
+
+## Part 2
+
+```elixir
+common = fn list ->
+  list
+  |> Enum.map(&to_charlist/1)
+  |> Enum.map(&Enum.map(&1, priority))
+  |> Enum.map(&MapSet.new/1)
+  |> Enum.reduce(&MapSet.intersection/2)
+  |> Enum.sum()
+end
+
+18 =
+  common.(["vJrwpWtwJgWrhcsFMMfFFhFp", "jqHRNqRjqzjGDLGLrsFMfFZSrLrFZsSL", "PmmdzqPrVvPwwTWBwg"])
+```
+
+```elixir
+input
+|> String.split()
+|> Enum.chunk_every(3)
+|> Enum.map(common)
+|> Enum.sum()
+```

@@ -1,0 +1,143 @@
+# Day 24
+
+## Input
+
+```elixir
+input = """
+#.#####
+#.....#
+#>....#
+#.....#
+#...v.#
+#.....#
+#####.#
+"""
+```
+
+```elixir
+input = """
+#.######
+#>>.<^<#
+#.<..<<#
+#>v.><>#
+#<^v^^>#
+######.#
+"""
+```
+
+## Common
+
+```elixir
+defmodule Basin do
+  def pprint(blizzards, rows, cols) do
+    # will overwrite if multiple blizzards on same
+    # square but we don't need a perfect pretty printer
+    blizzards = Map.new(blizzards)
+    IO.puts("#." <> String.duplicate("#", cols))
+
+    for row <- 0..(rows - 1) do
+      for col <- 0..(cols - 1) do
+        Map.get(blizzards, {row, col}, ?.)
+      end
+      |> then(&IO.puts('#' ++ &1 ++ '#'))
+    end
+
+    IO.puts(String.duplicate("#", cols) <> ".#")
+  end
+
+  def move_blizards(blizzards, rows, cols) do
+    for {{row, col}, d} <- blizzards do
+      {new_row, new_col} =
+        case d do
+          ?< -> {row, col - 1}
+          ?> -> {row, col + 1}
+          ?v -> {row + 1, col}
+          ?^ -> {row - 1, col}
+        end
+
+      {{Integer.mod(new_row, rows), Integer.mod(new_col, cols)}, d}
+    end
+  end
+
+  def reach_goal(blizzards, rows, cols, start, finish) do
+    Stream.iterate(0, &(&1 + 1))
+    |> Enum.reduce_while({[start], blizzards}, fn count, {possible_positions, blizzards} ->
+      # IO.inspect(Enum.count(possible_positions))
+      # IO.puts("turn start: #{count - 1}")
+      # possible_positions
+      # |> Map.new(fn pos -> {pos, ?o} end)
+      # |> Map.merge(Map.new(blizzards))
+      # |> pprint(rows, cols)
+
+      if finish in possible_positions do
+        {:halt, {count, blizzards}}
+      else
+        blizzards = move_blizards(blizzards, rows, cols)
+        occupied = Map.new(blizzards)
+
+        new_positions =
+          possible_positions
+          |> Enum.flat_map(fn {row, col} ->
+            neighbors = [
+              {row, col},
+              {row + 1, col},
+              {row - 1, col},
+              {row, col + 1},
+              {row, col - 1}
+            ]
+
+            Enum.filter(neighbors, fn {r, c} ->
+              (not Map.has_key?(occupied, {r, c}) and
+                 r >= 0 and r < rows and
+                 c >= 0 and c < cols) or
+                (r == -1 and c == 0) or
+                (r == rows and c == cols - 1)
+            end)
+          end)
+          |> MapSet.new()
+
+        {:cont, {new_positions, blizzards}}
+      end
+    end)
+  end
+end
+```
+
+```elixir
+lines = String.split(input)
+
+blizzards =
+  lines
+  |> Enum.with_index()
+  |> Enum.flat_map(fn {line, row} ->
+    for {c, col} <- line |> to_charlist() |> Enum.with_index(),
+        c in '<>v^' do
+      {{row - 1, col - 1}, c}
+    end
+  end)
+
+rows = length(lines) - 2
+cols = String.length(hd(lines)) - 2
+
+# blizzards
+# |> Basin.move_blizards(rows, cols)
+# |> Basin.pprint(rows, cols)
+
+start = {-1, 0}
+finish = {rows, cols - 1}
+```
+
+## Part 1
+
+```elixir
+Basin.reach_goal(blizzards, rows, cols, start, finish)
+```
+
+## Part 2
+
+```elixir
+{count1, blizzards} = Basin.reach_goal(blizzards, rows, cols, start, finish)
+{count2, blizzards} = Basin.reach_goal(blizzards, rows, cols, finish, start)
+{count3, _} = Basin.reach_goal(blizzards, rows, cols, start, finish)
+count1 + count2 + count3
+```

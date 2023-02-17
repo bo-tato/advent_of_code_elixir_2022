@@ -1,0 +1,101 @@
+# Day 13
+
+```elixir
+Mix.install([{:kino, "~> 0.5.0"}])
+```
+
+## Input
+
+```elixir
+input = """
+[1,1,3,1,1]
+[1,1,5,1,1]
+
+[[1],[2,3,4]]
+[[1],4]
+
+[9]
+[[8,7,6]]
+
+[[4,4],4,4]
+[[4,4],4,4,4]
+
+[7,7,7,7]
+[7,7,7]
+
+[]
+[3]
+
+[[[]]]
+[[]]
+
+[1,[2,[3,[4,[5,6,7]]]],8,9]
+[1,[2,[3,[4,[5,6,0]]]],8,9]
+"""
+```
+
+```elixir
+input = Kino.Input.textarea("paste input here:")
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+input =
+  input
+  |> Kino.Input.read()
+  |> String.split()
+  |> Enum.map(fn list -> list |> Code.eval_string() |> elem(0) end)
+```
+
+## Common
+
+```elixir
+defmodule Packet do
+  def compare([], []), do: :eq
+  def compare([], _), do: :lt
+  def compare(_, []), do: :gt
+
+  def compare([l | ls], [r | rs]) when is_integer(l) and is_integer(r) do
+    cond do
+      l < r -> :lt
+      l > r -> :gt
+      l == r -> compare(ls, rs)
+    end
+  end
+
+  def compare([l | ls], [r | rs]) when is_list(l) and is_list(r) do
+    case compare(l, r) do
+      :lt -> :lt
+      :gt -> :gt
+      :eq -> compare(ls, rs)
+    end
+  end
+
+  def compare([l | ls], right) when is_integer(l), do: compare([[l] | ls], right)
+  def compare(left, [r | rs]) when is_integer(r), do: compare(left, [[r] | rs])
+end
+```
+
+## Part 1
+
+```elixir
+for {[left, right], i} <- input |> Enum.chunk_every(2) |> Enum.with_index(1),
+    :lt == Packet.compare(left, right) do
+  i
+end
+|> Enum.sum()
+```
+
+## Part 2
+
+```elixir
+sorted =
+  input
+  |> Enum.concat([[[2]], [[6]]])
+  |> Enum.sort(Packet)
+
+start_index = 1 + Enum.find_index(sorted, &(&1 == [[2]]))
+end_index = 1 + Enum.find_index(sorted, &(&1 == [[6]]))
+start_index * end_index
+```

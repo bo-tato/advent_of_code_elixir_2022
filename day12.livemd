@@ -1,0 +1,70 @@
+# Day 12
+
+## Input
+
+```elixir
+input = """
+Sabqponm
+abcryxxl
+accszExk
+acctuvwj
+abdefghi
+"""
+```
+
+## Parse Input
+
+```elixir
+{grid, start, finish} =
+  for {line, row} <- Enum.with_index(String.split(input)),
+      {letter, col} <- Enum.with_index(to_charlist(line)),
+      reduce: {_grid = %{}, _start = nil, _finish = nil} do
+    {grid, start, finish} ->
+      cur = {row, col}
+
+      case letter do
+        ?S -> {Map.put(grid, cur, ?a), cur, finish}
+        ?E -> {Map.put(grid, cur, ?z), start, cur}
+        _ -> {Map.put(grid, cur, letter), start, finish}
+      end
+  end
+
+graph = :digraph.new()
+
+vertices =
+  Map.keys(grid)
+  |> Enum.map(fn k -> {k, :digraph.add_vertex(graph)} end)
+  |> Map.new()
+
+for current = {row, col} <- Map.keys(grid) do
+  for neighbor <- [{row + 1, col}, {row - 1, col}, {row, col + 1}, {row, col - 1}] do
+    if grid[current] + 1 >= grid[neighbor] do
+      :digraph.add_edge(graph, vertices[current], vertices[neighbor])
+    end
+  end
+end
+```
+
+## Part 1
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+:digraph.get_short_path(graph, vertices[start], vertices[finish]) |> tl() |> length()
+```
+
+## Part 2
+
+```elixir
+lowest = for {coord, ?a} <- grid, do: coord
+
+lowest
+# |> IO.inspect()
+|> Task.async_stream(fn start ->
+  case :digraph.get_short_path(graph, vertices[start], vertices[finish]) do
+    false -> :infinity
+    list -> length(list) - 1
+  end
+end)
+|> Enum.min()
+```

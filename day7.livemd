@@ -1,0 +1,174 @@
+# Day 7
+
+## Section
+
+```elixir
+input = """
+$ cd /
+$ ls
+dir a
+14848514 b.txt
+8504156 c.dat
+dir d
+$ cd a
+$ ls
+dir e
+29116 f
+2557 g
+62596 h.lst
+$ cd e
+$ ls
+584 i
+$ cd ..
+$ cd ..
+$ cd d
+$ ls
+4060174 j
+8033020 d.log
+5626152 d.ext
+7214296 k
+"""
+```
+
+```elixir
+defmodule Dir do
+  defstruct [:parent, :name, children: [], total_size: 0]
+end
+
+defmodule File do
+  defstruct [:size]
+end
+
+defmodule FS do
+  def find_child(fs, id, name) do
+    Enum.find(fs[id].children, fn id ->
+      case fs[id] do
+        %Dir{name: ^name} -> true
+        _ -> false
+      end
+    end)
+  end
+
+  def add_dir(fs, id, name) do
+    case find_child(fs, id, name) do
+      nil ->
+        new_id = map_size(fs)
+
+        fs =
+          fs
+          |> Map.update!(id, fn d -> %Dir{d | children: [new_id | d.children]} end)
+          |> Map.put(new_id, %Dir{name: name, parent: id})
+
+        {fs, new_id}
+
+      child ->
+        {fs, child}
+    end
+  end
+
+  def add_to_size(fs, nil, _), do: fs
+
+  def add_to_size(fs, id, size) do
+    fs = Map.update!(fs, id, fn d -> %Dir{d | total_size: size + d.total_size} end)
+    add_to_size(fs, fs[id].parent, size)
+  end
+
+  def add_file(fs, id, size) do
+    new_id = map_size(fs)
+
+    fs
+    |> Map.update!(id, fn d -> %Dir{d | children: [new_id | d.children]} end)
+    |> Map.put(new_id, %File{size: size})
+    |> add_to_size(id, size)
+  end
+end
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+fs = %{0 => %Dir{name: "a", children: [2]}, 1 => %Dir{name: "b"}, 2 => %Dir{name: "c"}}
+FS.find_child(fs, 1, "b")
+{fs, _} = FS.add_dir(fs, 0, "new")
+FS.add_file(fs, 2, 582)
+```
+
+```elixir
+fs = %{0 => %Dir{}}
+
+input
+|> String.split("\n", trim: true)
+|> Enum.reduce({fs, 0}, fn line, {fs, cwd} ->
+  case line do
+    "$ cd /" ->
+      {fs, 0}
+
+    "$ cd .." ->
+      {fs, fs[cwd].parent}
+
+    "$ cd " <> d ->
+      FS.add_dir(fs, cwd, d)
+
+    "$ ls" ->
+      {fs, cwd}
+
+    "dir " <> d ->
+      {fs, _} = FS.add_dir(fs, cwd, d)
+      {fs, cwd}
+
+    s ->
+      size = s |> String.split() |> List.first() |> String.to_integer()
+      {FS.add_file(fs, cwd, size), cwd}
+  end
+end)
+|> elem(0)
+|> Map.values()
+|> Enum.flat_map(fn
+  %Dir{total_size: total_size} when total_size <= 100_000 -> [total_size]
+  _ -> []
+end)
+|> Enum.sum()
+```
+
+```elixir
+fs = %{0 => %Dir{}}
+
+fs =
+  input
+  |> String.split("\n", trim: true)
+  |> Enum.reduce({fs, 0}, fn line, {fs, cwd} ->
+    case line do
+      "$ cd /" ->
+        {fs, 0}
+
+      "$ cd .." ->
+        {fs, fs[cwd].parent}
+
+      "$ cd " <> d ->
+        FS.add_dir(fs, cwd, d)
+
+      "$ ls" ->
+        {fs, cwd}
+
+      "dir " <> d ->
+        {fs, _} = FS.add_dir(fs, cwd, d)
+        {fs, cwd}
+
+      s ->
+        size = s |> String.split() |> List.first() |> String.to_integer()
+        {FS.add_file(fs, cwd, size), cwd}
+    end
+  end)
+  |> elem(0)
+
+need_to_free = 30_000_000 - (70_000_000 - fs[0].total_size)
+
+fs
+|> Map.values()
+|> Enum.flat_map(fn
+  %Dir{total_size: total_size} when total_size >= need_to_free -> [total_size]
+  _ -> []
+end)
+|> Enum.sort()
+|> List.first()
+```

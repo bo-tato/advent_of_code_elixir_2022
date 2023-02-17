@@ -1,0 +1,133 @@
+# Day 15
+
+## Input
+
+```elixir
+input = """
+Sensor at x=2, y=18: closest beacon is at x=-2, y=15
+Sensor at x=9, y=16: closest beacon is at x=10, y=16
+Sensor at x=13, y=2: closest beacon is at x=15, y=3
+Sensor at x=12, y=14: closest beacon is at x=10, y=16
+Sensor at x=10, y=20: closest beacon is at x=10, y=16
+Sensor at x=14, y=17: closest beacon is at x=10, y=16
+Sensor at x=8, y=7: closest beacon is at x=2, y=10
+Sensor at x=2, y=0: closest beacon is at x=2, y=10
+Sensor at x=0, y=11: closest beacon is at x=2, y=10
+Sensor at x=20, y=14: closest beacon is at x=25, y=17
+Sensor at x=17, y=20: closest beacon is at x=21, y=22
+Sensor at x=16, y=7: closest beacon is at x=15, y=3
+Sensor at x=14, y=3: closest beacon is at x=15, y=3
+Sensor at x=20, y=1: closest beacon is at x=15, y=3
+"""
+```
+
+```elixir
+distance = fn x1, y1, x2, y2 ->
+  abs(x2 - x1) + abs(y2 - y1)
+end
+```
+
+## Part 1
+
+```elixir
+# row = 2000000
+row = 10
+```
+
+```elixir
+{ranges, beacons} =
+  input
+  |> String.split("\n", trim: true)
+  |> Enum.flat_map_reduce(MapSet.new(), fn line, beacons ->
+    [scanner_x, scanner_y, beacon_x, beacon_y] =
+      Regex.scan(~r([-\d]+), line)
+      |> List.flatten()
+      |> Enum.map(&String.to_integer/1)
+
+    beacons = if beacon_y == row, do: MapSet.put(beacons, beacon_x), else: beacons
+
+    dist = distance.(scanner_x, scanner_y, beacon_x, beacon_y)
+
+    if abs(row - scanner_y) <= dist do
+      x_range = dist - abs(row - scanner_y)
+      {[{scanner_x - x_range, scanner_x + x_range}], beacons}
+    else
+      # skip points too far from the row we're looking at
+      {[], beacons}
+    end
+  end)
+```
+
+```elixir
+ranges
+|> Enum.sort()
+|> Enum.reduce({0, -999_999_999}, fn {left, right}, {sum, x} ->
+  left = max(x, left)
+
+  if left <= right do
+    IO.inspect({left, right})
+    num_beacons = Enum.count(beacons, fn beacon_x -> beacon_x >= left and beacon_x <= right end)
+    {sum + right - left + 1 - num_beacons, right + 1}
+  else
+    {sum, x}
+  end
+end)
+|> elem(0)
+```
+
+## Part 2
+
+```elixir
+scanners =
+  input
+  |> String.split("\n", trim: true)
+  |> Enum.map(fn line ->
+    [scanner_x, scanner_y, beacon_x, beacon_y] =
+      Regex.scan(~r([-\d]+), line)
+      |> List.flatten()
+      |> Enum.map(&String.to_integer/1)
+
+    dist = distance.(scanner_x, scanner_y, beacon_x, beacon_y)
+    {scanner_x, scanner_y, dist}
+  end)
+```
+
+```elixir
+defmodule Fast do
+  def fast(max_range, scanners) do
+    Enum.find_value(0..max_range, fn row ->
+      x =
+        scanners
+        |> Enum.flat_map(fn {x, y, dist} ->
+          x_range = dist - abs(row - y)
+
+          if x_range >= 0 do
+            [{x - x_range, x + x_range}]
+          else
+            []
+          end
+        end)
+        |> Enum.sort()
+        # |> IO.inspect()
+        |> Enum.reduce_while(0, fn {left, right}, current ->
+          if current < left or current > max_range do
+            {:halt, current}
+          else
+            {:cont, max(current, right + 1)}
+          end
+        end)
+
+      if x <= max_range do
+        4_000_000 * x + row
+      end
+    end)
+  end
+end
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+Fast.fast(4_000_000, scanners)
+# Fast.fast(20, scanners)
+```

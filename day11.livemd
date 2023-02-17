@@ -1,0 +1,295 @@
+# Day 11
+
+## Input
+
+```elixir
+input = """
+Monkey 0:
+  Starting items: 79, 98
+  Operation: new = old * 19
+  Test: divisible by 23
+    If true: throw to monkey 2
+    If false: throw to monkey 3
+
+Monkey 1:
+  Starting items: 54, 65, 75, 74
+  Operation: new = old + 6
+  Test: divisible by 19
+    If true: throw to monkey 2
+    If false: throw to monkey 0
+
+Monkey 2:
+  Starting items: 79, 60, 97
+  Operation: new = old * old
+  Test: divisible by 13
+    If true: throw to monkey 1
+    If false: throw to monkey 3
+
+Monkey 3:
+  Starting items: 74
+  Operation: new = old + 3
+  Test: divisible by 17
+    If true: throw to monkey 0
+    If false: throw to monkey 1
+"""
+```
+
+```elixir
+input = """
+Monkey 0:
+  Starting items: 85, 77, 77
+  Operation: new = old * 7
+  Test: divisible by 19
+    If true: throw to monkey 6
+    If false: throw to monkey 7
+
+Monkey 1:
+  Starting items: 80, 99
+  Operation: new = old * 11
+  Test: divisible by 3
+    If true: throw to monkey 3
+    If false: throw to monkey 5
+
+Monkey 2:
+  Starting items: 74, 60, 74, 63, 86, 92, 80
+  Operation: new = old + 8
+  Test: divisible by 13
+    If true: throw to monkey 0
+    If false: throw to monkey 6
+
+Monkey 3:
+  Starting items: 71, 58, 93, 65, 80, 68, 54, 71
+  Operation: new = old + 7
+  Test: divisible by 7
+    If true: throw to monkey 2
+    If false: throw to monkey 4
+
+Monkey 4:
+  Starting items: 97, 56, 79, 65, 58
+  Operation: new = old + 5
+  Test: divisible by 5
+    If true: throw to monkey 2
+    If false: throw to monkey 0
+
+Monkey 5:
+  Starting items: 77
+  Operation: new = old + 4
+  Test: divisible by 11
+    If true: throw to monkey 4
+    If false: throw to monkey 3
+
+Monkey 6:
+  Starting items: 99, 90, 84, 50
+  Operation: new = old * old
+  Test: divisible by 17
+    If true: throw to monkey 7
+    If false: throw to monkey 1
+
+Monkey 7:
+  Starting items: 50, 66, 61, 92, 64, 78
+  Operation: new = old + 3
+  Test: divisible by 2
+    If true: throw to monkey 5
+    If false: throw to monkey 1
+"""
+```
+
+## Monkey data structure
+
+```elixir
+defmodule Monkey do
+  defstruct [:operation, :test, :monkey_true, :monkey_false, items: [], inspected: 0]
+
+  defp append_items_to(items, monkey) do
+    %{monkey | items: monkey.items ++ items}
+  end
+
+  def parse_monkey(input) do
+    input
+    |> String.split("\n")
+    |> Enum.reduce(%Monkey{}, fn line, monkey ->
+      case line do
+        "  Starting items: " <> items ->
+          items
+          |> String.split(", ")
+          |> Enum.map(&String.to_integer/1)
+          |> append_items_to(monkey)
+
+        "  Operation: new = old " <> str ->
+          [op, n] = str |> String.split()
+
+          n = fn old ->
+            case n do
+              "old" -> old
+              _ -> String.to_integer(n)
+            end
+          end
+
+          f =
+            case op do
+              "*" -> &(n.(&1) * &1)
+              "+" -> &(n.(&1) + &1)
+            end
+
+          %{monkey | operation: f}
+
+        "  Test: divisible by " <> n ->
+          %{monkey | test: String.to_integer(n)}
+
+        "    If true: throw to monkey " <> n ->
+          %{monkey | monkey_true: String.to_integer(n)}
+
+        "    If false: throw to monkey " <> n ->
+          %{monkey | monkey_false: String.to_integer(n)}
+
+        _ ->
+          monkey
+      end
+    end)
+  end
+
+  def round(monkeys) do
+    for i <- 0..(Map.size(monkeys) - 1), reduce: monkeys do
+      monkeys ->
+        {throw_true, throw_false} =
+          monkeys[i].items
+          |> Enum.map(fn n -> div(monkeys[i].operation.(n), 3) end)
+          |> Enum.split_with(fn n -> rem(n, monkeys[i].test) == 0 end)
+
+        {monkey_true, monkey_false} = {monkeys[i].monkey_true, monkeys[i].monkey_false}
+        item_key = Access.key(:items)
+
+        monkeys
+        |> put_in([i, item_key], [])
+        |> update_in([i, Access.key(:inspected)], &(&1 + length(monkeys[i].items)))
+        |> update_in([monkey_true, item_key], &(&1 ++ throw_true))
+        |> update_in([monkey_false, item_key], &(&1 ++ throw_false))
+    end
+  end
+end
+```
+
+## Part 1
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+monkeys =
+  input
+  |> String.split("\n\n")
+  |> Enum.map(&Monkey.parse_monkey/1)
+  |> Enum.with_index(fn k, v -> {v, k} end)
+  |> Map.new()
+
+# |> IO.inspect(charlists: :as_lists)
+
+Enum.reduce(1..20, monkeys, fn _, monkeys -> Monkey.round(monkeys) end)
+|> Map.values()
+|> Enum.map(& &1.inspected)
+|> Enum.sort(:desc)
+|> Enum.take(2)
+|> Enum.product()
+```
+
+## Part 2
+
+```elixir
+defmodule Monkey2 do
+  defstruct [:operation, :test, :monkey_true, :monkey_false, items: [], inspected: 0]
+
+  def parse_monkey(input) do
+    input
+    |> String.split("\n")
+    |> Enum.reduce(%Monkey2{}, fn line, monkey ->
+      case line do
+        "  Starting items: " <> items ->
+          items
+          |> String.split(", ")
+          |> Enum.map(&String.to_integer/1)
+          |> then(&%{monkey | items: [&1]})
+
+        "  Operation: new = old " <> str ->
+          [op, n] = str |> String.split()
+
+          n = fn old ->
+            case n do
+              "old" -> old
+              _ -> String.to_integer(n)
+            end
+          end
+
+          f =
+            case op do
+              "*" -> &(n.(&1) * &1)
+              "+" -> &(n.(&1) + &1)
+            end
+
+          %{monkey | operation: f}
+
+        "  Test: divisible by " <> n ->
+          %{monkey | test: String.to_integer(n)}
+
+        "    If true: throw to monkey " <> n ->
+          %{monkey | monkey_true: String.to_integer(n)}
+
+        "    If false: throw to monkey " <> n ->
+          %{monkey | monkey_false: String.to_integer(n)}
+
+        _ ->
+          monkey
+      end
+    end)
+  end
+
+  def round(monkeys) do
+    all_tests =
+      monkeys
+      |> Map.values()
+      |> Enum.map(& &1.test)
+      |> Enum.product()
+
+    for i <- 0..(Map.size(monkeys) - 1), reduce: monkeys do
+      monkeys ->
+        items = Enum.concat(monkeys[i].items)
+        # IO.inspect(monkeys[i], label: i, charlists: :as_lists)
+        # IO.inspect(items, charlists: :as_lists)
+        {throw_true, throw_false} =
+          items
+          |> Enum.map(fn n -> rem(monkeys[i].operation.(n), all_tests) end)
+          |> Enum.split_with(fn n -> rem(n, monkeys[i].test) == 0 end)
+
+        # IO.inspect({throw_true, throw_false}, charlists: :as_lists)
+
+        {monkey_true, monkey_false} = {monkeys[i].monkey_true, monkeys[i].monkey_false}
+        item_key = Access.key(:items)
+
+        monkeys
+        |> put_in([i, item_key], [])
+        |> update_in([i, Access.key(:inspected)], &(&1 + length(items)))
+        |> update_in([monkey_true, item_key], &[throw_true | &1])
+        |> update_in([monkey_false, item_key], &[throw_false | &1])
+    end
+  end
+end
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+monkeys =
+  input
+  |> String.split("\n\n")
+  |> Enum.map(&Monkey2.parse_monkey/1)
+  |> Enum.with_index(fn k, v -> {v, k} end)
+  |> Map.new()
+
+# |> IO.inspect(charlists: :as_lists)
+
+Enum.reduce(1..10000, monkeys, fn _, monkeys -> Monkey2.round(monkeys) end)
+# |> IO.inspect(charlists: :as_lists)
+|> Map.values()
+|> Enum.map(& &1.inspected)
+|> Enum.sort(:desc)
+|> Enum.take(2)
+|> Enum.product()
+```

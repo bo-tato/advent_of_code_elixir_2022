@@ -1,0 +1,226 @@
+# Day 19
+
+## Input
+
+```elixir
+input = """
+Blueprint 1: Each ore robot costs 4 ore. Each clay robot costs 2 ore. Each obsidian robot costs 3 ore and 14 clay. Each geode robot costs 2 ore and 7 obsidian.
+Blueprint 2: Each ore robot costs 2 ore. Each clay robot costs 3 ore. Each obsidian robot costs 3 ore and 8 clay. Each geode robot costs 3 ore and 12 obsidian.
+"""
+```
+
+## Common
+
+kind of ugly recursion with lot's of repition and potential for off-by-one errors, but it seems to work
+
+```elixir
+defmodule Miner do
+  def just_mine(minerals, robots, time) do
+    Enum.zip(minerals, robots)
+    |> Enum.map(fn {mineral, robot} ->
+      mineral + robot * time
+    end)
+  end
+
+  def better?(first, second) do
+    if Enum.at(first, 3) > Enum.at(second, 3) do
+      first
+    else
+      second
+    end
+  end
+
+  def mine(_, minerals, robots, 0) do
+    # IO.inspect({robots, minerals, 0})
+    minerals
+  end
+
+  def mine(_, _, _, time) when time < 0, do: IO.puts("bad time!")
+
+  def mine(
+        [ore_ore, clay_ore, obs_ore, obs_clay, geode_ore, geode_obs] = blueprint,
+        [ore, clay, obs, geode] = minerals,
+        [ore_robots, clay_robots, obs_robots, geode_robots] = robots,
+        time
+      ) do
+    # IO.inspect({robots, minerals, time})
+    best = just_mine(minerals, robots, time)
+
+    build_time =
+      cond do
+        ore < ore_ore ->
+          1 + div(ore_ore - ore - 1, ore_robots) + 1
+
+        # 2* heuristic might not be correct but works on input
+        ore >= ore_ore * 2 ->
+          999_999
+
+        true ->
+          1
+      end
+
+    best =
+      if time - build_time >= 0 do
+        better?(
+          mine(
+            blueprint,
+            [
+              ore + ore_robots * build_time - ore_ore,
+              clay + clay_robots * build_time,
+              obs + obs_robots * build_time,
+              geode + geode_robots * build_time
+            ],
+            [ore_robots + 1, clay_robots, obs_robots, geode_robots],
+            time - build_time
+          ),
+          best
+        )
+      else
+        best
+      end
+
+    build_time =
+      cond do
+        ore < clay_ore ->
+          1 + div(clay_ore - ore - 1, ore_robots) + 1
+
+        ore >= clay_ore * 2 ->
+          999_999
+
+        true ->
+          1
+      end
+
+    best =
+      if time - build_time >= 0 do
+        better?(
+          mine(
+            blueprint,
+            [
+              ore + ore_robots * build_time - clay_ore,
+              clay + clay_robots * build_time,
+              obs + obs_robots * build_time,
+              geode + geode_robots * build_time
+            ],
+            [ore_robots, clay_robots + 1, obs_robots, geode_robots],
+            time - build_time
+          ),
+          best
+        )
+      else
+        best
+      end
+
+    build_time =
+      cond do
+        ore >= 2 * obs_ore and clay >= 2 * obs_clay ->
+          999_999
+
+        ore >= obs_ore and clay >= obs_clay ->
+          1
+
+        true ->
+          if clay_robots > 0 do
+            max(
+              1 + div(obs_ore - ore - 1, ore_robots) + 1,
+              1 + div(obs_clay - clay - 1, clay_robots) + 1
+            )
+          else
+            999_999
+          end
+      end
+
+    best =
+      if time - build_time >= 0 do
+        better?(
+          mine(
+            blueprint,
+            [
+              ore + ore_robots * build_time - obs_ore,
+              clay + clay_robots * build_time - obs_clay,
+              obs + obs_robots * build_time,
+              geode + geode_robots * build_time
+            ],
+            [ore_robots, clay_robots, obs_robots + 1, geode_robots],
+            time - build_time
+          ),
+          best
+        )
+      else
+        best
+      end
+
+    build_time =
+      cond do
+        ore >= 2 * geode_ore and obs >= 2 * geode_obs ->
+          999_999
+
+        ore >= geode_ore and obs >= geode_obs ->
+          1
+
+        true ->
+          if obs_robots > 0 do
+            max(
+              1 + div(geode_ore - ore - 1, ore_robots) + 1,
+              1 + div(geode_obs - obs - 1, obs_robots) + 1
+            )
+          else
+            999_999
+          end
+      end
+
+    if time - build_time >= 0 do
+      better?(
+        mine(
+          blueprint,
+          [
+            ore + ore_robots * build_time - geode_ore,
+            clay + clay_robots * build_time,
+            obs + obs_robots * build_time - geode_obs,
+            geode + geode_robots * build_time
+          ],
+          [ore_robots, clay_robots, obs_robots, geode_robots + 1],
+          time - build_time
+        ),
+        best
+      )
+    else
+      best
+    end
+  end
+end
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+blueprints =
+  input
+  |> String.split("\n", trim: true)
+  |> Enum.map(fn line ->
+    Regex.scan(~r/\d+/, line)
+    |> tl()
+    |> List.flatten()
+    |> Enum.map(&String.to_integer/1)
+  end)
+```
+
+## Part 1
+
+```elixir
+blueprints
+# |> Enum.take(10)
+|> Enum.map(&Miner.mine(&1, [0, 0, 0, 0], [1, 0, 0, 0], 24))
+|> Enum.with_index(fn [_, _, _, geode], index -> geode * (index + 1) end)
+|> Enum.sum()
+```
+
+## Part 2
+
+```elixir
+blueprints
+|> Enum.take(3)
+|> Enum.map(&Miner.mine(&1, [0, 0, 0, 0], [1, 0, 0, 0], 32))
+|> Enum.map(&Enum.at(&1, 3))
+|> Enum.product()
+```

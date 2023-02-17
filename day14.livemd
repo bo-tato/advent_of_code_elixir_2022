@@ -1,0 +1,111 @@
+# Day 14
+
+```elixir
+Mix.install([{:kino, "~> 0.5.0"}])
+```
+
+## Section
+
+```elixir
+input = """
+498,4 -> 498,6 -> 496,6
+503,4 -> 502,4 -> 502,9 -> 494,9
+"""
+```
+
+```elixir
+input = Kino.Input.textarea("paste input here:")
+```
+
+```elixir
+defmodule Cave do
+  defstruct [:max_y, :filled, :count]
+
+  def draw_path([{x1, y1}, {x2, y2}]) do
+    if x1 == x2 do
+      for y <- y1..y2, do: {x1, y}
+    else
+      for x <- x1..x2, do: {x, y1}
+    end
+  end
+
+  def pprint(cave) do
+    {min_x, max_x} = cave.filled |> Enum.map(fn {x, _} -> x end) |> Enum.min_max()
+    min_y = cave.filled |> Enum.map(fn {_, y} -> y end) |> Enum.min()
+    # IO.inspect(MapSet.member?(cave.filled, {495, 8}))
+
+    Enum.each(min_y..(cave.max_y + 2), fn y ->
+      Enum.map(min_x..max_x, fn x ->
+        if MapSet.member?(cave.filled, {x, y}) do
+          ?#
+        else
+          ?.
+        end
+      end)
+      |> IO.puts()
+    end)
+  end
+
+  def parse_input(lines) do
+    filled =
+      for line <- lines do
+        for point <- String.split(line, " -> "),
+            [x, y] = String.split(point, ",") |> Enum.map(&String.to_integer/1) do
+          {x, y}
+        end
+        |> Enum.chunk_every(2, 1, :discard)
+        |> Enum.map(&Cave.draw_path/1)
+      end
+      |> List.flatten()
+      |> MapSet.new()
+
+    max_y = filled |> Enum.map(fn {_, y} -> y end) |> Enum.max()
+
+    %Cave{
+      max_y: max_y,
+      filled: filled,
+      count: MapSet.size(filled)
+    }
+  end
+
+  # part 2 (comment out just next line for part1 solution)
+  defp free?(cave, {_, y}) when y == cave.max_y + 2, do: false
+
+  defp free?(cave, point) do
+    not MapSet.member?(cave.filled, point)
+  end
+
+  def drop(cave, {_, y}) when y >= cave.max_y + 2, do: cave
+
+  def drop(cave, {x, y}) do
+    fall_to =
+      [{x, y + 1}, {x - 1, y + 1}, {x + 1, y + 1}]
+      |> Enum.find({x, y}, &free?(cave, &1))
+
+    if fall_to == {x, y} do
+      %{cave | filled: MapSet.put(cave.filled, fall_to)}
+    else
+      drop(cave, fall_to)
+    end
+  end
+
+  def count_sand(cave) do
+    MapSet.size(cave.filled) - cave.count
+  end
+end
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+input
+|> Kino.Input.read()
+|> String.split("\n", trim: true)
+|> Cave.parse_input()
+|> Stream.iterate(&Cave.drop(&1, {500, 0}))
+|> Stream.chunk_every(2, 1)
+|> Stream.drop_while(fn [prev, cur] -> prev != cur end)
+|> Enum.at(0)
+|> hd()
+|> Cave.count_sand()
+```

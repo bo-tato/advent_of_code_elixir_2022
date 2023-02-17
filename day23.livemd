@@ -1,0 +1,158 @@
+# Day 23
+
+## Section
+
+```elixir
+input = """
+.....
+..##.
+..#..
+.....
+..##.
+.....
+"""
+```
+
+```elixir
+input = """
+....#..
+..###.#
+#...#.#
+.#...##
+#.###..
+##.#.##
+.#..#..
+"""
+```
+
+```elixir
+defmodule Elves do
+  def min_max_row(elves) do
+    elves
+    |> Enum.map(fn {row, _} -> row end)
+    |> Enum.min_max()
+  end
+
+  def min_max_col(elves) do
+    elves
+    |> Enum.map(fn {_, col} -> col end)
+    |> Enum.min_max()
+  end
+
+  def pprint(elves) do
+    {min_row, max_row} = min_max_row(elves)
+    {min_col, max_col} = min_max_col(elves)
+
+    for row <- min_row..max_row do
+      for col <- min_col..max_col do
+        if MapSet.member?(elves, {row, col}) do
+          ?#
+        else
+          ?.
+        end
+      end
+      |> IO.puts()
+    end
+  end
+
+  def all_free?(elves, {row, col}, directions) do
+    directions
+    |> List.flatten()
+    |> Enum.all?(fn {dr, dc} ->
+      not MapSet.member?(elves, {row + dr, col + dc})
+    end)
+  end
+
+  def round(elves, directions) do
+    # make a big list of [proposed location, old location]
+    for {row, col} = cur <- elves do
+      proposed =
+        directions
+        |> Enum.find(fn moves ->
+          all_free?(elves, cur, moves)
+        end)
+
+      if all_free?(elves, cur, directions) or is_nil(proposed) do
+        [cur, cur]
+      else
+        [{dr, dc} | _] = proposed
+        [{row + dr, col + dc}, cur]
+      end
+    end
+    # group by proposed location
+    |> Enum.group_by(&hd/1)
+    |> Enum.flat_map(fn {proposed, old_list} ->
+      # if just one elf proposed to go there then move
+      if length(old_list) == 1 do
+        [proposed]
+      else
+        # otherwise use the old values
+        old_list
+        |> Enum.map(fn [_, old] -> old end)
+      end
+    end)
+    |> MapSet.new()
+  end
+
+  def count_spaces(elves) do
+    {min_row, max_row} = min_max_row(elves)
+    {min_col, max_col} = min_max_col(elves)
+
+    (max_row - min_row + 1) * (max_col - min_col + 1) - MapSet.size(elves)
+  end
+end
+```
+
+```elixir
+elves =
+  for {line, row} <- input |> String.split() |> Enum.with_index(),
+      {char, col} <- Enum.with_index(to_charlist(line)),
+      char == ?#,
+      into: MapSet.new() do
+    {row, col}
+  end
+```
+
+```elixir
+Elves.pprint(elves)
+```
+
+```elixir
+directions = [
+  [{-1, 0}, {-1, -1}, {-1, 1}],
+  [{1, 0}, {1, -1}, {1, 1}],
+  [{0, -1}, {-1, -1}, {1, -1}],
+  [{0, 1}, {-1, 1}, {1, 1}]
+]
+```
+
+## Part 1
+
+```elixir
+{final_elves, _} =
+  1..10
+  |> Enum.reduce({elves, directions}, fn _, {elves, directions} ->
+    elves = Elves.round(elves, directions)
+    # Elves.pprint(elves)
+    # IO.puts("-------------")
+    {elves, tl(directions) ++ [hd(directions)]}
+  end)
+
+Elves.count_spaces(final_elves)
+```
+
+## Part 2
+
+```elixir
+1..10000
+|> Enum.reduce_while({elves, directions}, fn round, {elves, directions} ->
+  new_elves = Elves.round(elves, directions)
+  # Elves.pprint(new_elves)
+  # IO.puts("-------------")
+  if elves == new_elves do
+    {:halt, round}
+  else
+    {:cont, {new_elves, tl(directions) ++ [hd(directions)]}}
+  end
+end)
+```

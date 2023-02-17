@@ -1,0 +1,106 @@
+# Day 20
+
+```elixir
+Mix.install([{:kino, "~> 0.5.0"}])
+```
+
+## Section
+
+```elixir
+input = """
+1
+2
+-3
+3
+-2
+0
+4
+"""
+```
+
+```elixir
+input = Kino.Input.textarea("paste input here:")
+```
+
+```elixir
+input = Kino.Input.read(input)
+```
+
+```elixir
+defmodule Grove do
+  def insert_pos(j, offset, size) do
+    val = Integer.mod(j + offset, size - 1)
+
+    if val != 0 or offset == 0 do
+      val
+    else
+      -1
+    end
+  end
+
+  def read_input(input) do
+    input
+    |> String.split()
+    |> Enum.map(&String.to_integer/1)
+    |> Enum.with_index(fn element, index -> {index, element} end)
+    |> Map.new()
+  end
+
+  def mix(list, mapping, size) do
+    Enum.to_list(0..(size - 1))
+    |> Enum.reduce(list, fn i, acc ->
+      # IO.inspect(Enum.map(acc, &mapping[&1]))
+      j = Enum.find_index(acc, &(&1 == i))
+      # IO.inspect(j)
+      # IO.inspect(insert_pos(j, mapping[i], size))
+      acc
+      |> List.delete_at(j)
+      |> List.insert_at(insert_pos(j, mapping[i], size), i)
+    end)
+  end
+
+  def get_answer(mixed, size) do
+    zero_index = Enum.find_index(mixed, &(&1 == 0))
+
+    [1000, 2000, 3000]
+    |> Enum.map(&Enum.at(mixed, rem(&1 + zero_index, size)))
+    |> Enum.sum()
+  end
+
+  def part1(input) do
+    mapping = read_input(input)
+
+    size = map_size(mapping)
+
+    mixed =
+      mix(Enum.to_list(0..(size - 1)), mapping, size)
+      |> Enum.map(&mapping[&1])
+
+    # IO.inspect(mixed)
+    get_answer(mixed, size)
+  end
+
+  def part2(input) do
+    mapping = read_input(input) |> Map.new(fn {k, v} -> {k, v * 811_589_153} end)
+    size = map_size(mapping)
+
+    mixed =
+      1..10
+      |> Enum.reduce(Enum.to_list(0..(size - 1)), fn _, list ->
+        # IO.puts("new round")
+        mix(list, mapping, size)
+      end)
+      |> Enum.map(&mapping[&1])
+
+    get_answer(mixed, size)
+  end
+end
+```
+
+```elixir
+Grove.part1(input)
+```
+
+```elixir
+Grove.part2(input)
+```
